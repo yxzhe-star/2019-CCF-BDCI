@@ -13,5 +13,6 @@ tensorflow 1.12
 tesla P40, 大约需要12g显存。如果没有大显存，调小maxlen和batch size即可，可能效果会略有下降  
 ## 运行  
 修改各种路径，直接run.sh就可以了。
-# 模型
-
+# 模型（bert+bilstm+crf）
+本题是自然语言处理的ner（命名实体识别）问题，ner本质其实也是分类问题，只不过是token级别的分类。  
+在bert模型出来前，主流的解决方法是将词向量输入bilstm+crf来分类。不过google去年开源了bert之后，nlp的许多任务准确率大幅提升。自然ner也不例外，只不过bert在ner中相当于充当词向量，后续一样。不过google开源的源码里好像没有ner任务，此处参考大佬改写的bert ner版：https://github.com/jiangxinyang227/NLP-Project（真的是大佬，将各类任务都改写了一遍）。
