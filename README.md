@@ -26,3 +26,13 @@ BERT输入表示。输入嵌入是token embeddings, segmentation embeddings 和p
 （3）每个序列的第一个token始终是特殊分类嵌入（[CLS]）。对应于该token的最终隐藏状态（即，Transformer的输出）被用作分类任务的聚合序列表示。对于非分类任务，将忽略此向量。可以用output_layer = model.get_sequence_output()这个获取每个token的output，输出维度为[batch_size, seq_length, embedding_size]。本比赛是ner任务，因此使用该函数。output_layer = model.get_pooled_output()，这个输出是获取句子的output，对应文本分类任务。  
 （4）句子对被打包成一个序列。以两种方式区分句子。首先，用特殊标记（[SEP]）将它们分开。其次，添加一个learned sentence A嵌入到第一个句子的每个token中，一个sentence B嵌入到第二个句子的每个token中。  
 （5）对于单个句子输入，只使用 sentence A嵌入。  
+## crf
+BiLSTM就不介绍了，比较常见。其实完全可以bert后直接接crf层，因为BiLSTM也是提取特征的，实际上bert已经做得很好了，不过我这里没有去掉BiLSTM层。  
+加入crf层的目的主要是可以为最终预测标签添加一些约束以确保它们有效。在训练过程中，CRF层可以自动从训练数据集中学习这些约束。  
+例如有两种类型的实体：人和组织。  
+（1）句子中第一个单词的标签应以“B-”或“O”开头，而不是“I-”  
+（2）B-label1 I-label2 I-label3 I- …“，在此模式中，label1，label2，label3 …应该是相同的命名实体标签。例如，“B-Person I-Person”有效，但“B-Person I-Organization”无效。  
+（3）“O I-label”无效。一个命名实体的第一个标签应以“B-”而非“I-”开头，换句话说，有效模式应为“O B-label”  
+（4）利用这些有用的约束，无效预测标签序列的数量将显着减少。    
+CRF是它以路径为单位，考虑的是路径的概率。具体来讲，在CRF的序列标注问题中，我们要计算的是条件概率    
+P(y1,…,yn|x1,…,xn)=P(y1,…,yn|x),x=(x1,…,xn)
