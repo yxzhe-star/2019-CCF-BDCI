@@ -12,8 +12,6 @@ python 3.5
 tensorflow 1.12  
 ## 硬件  
 tesla P40, 大约需要12g显存。如果没有大显存，调小maxlen和batch size即可，可能效果会略有下降  
-## 运行  
-修改各种路径，直接run.sh就可以了。
 # 模型（bert+bilstm+crf）
 本题是自然语言处理的ner（命名实体识别）问题，ner本质其实也是分类问题，只不过是token级别的分类。  
 在bert模型出来前，主流的解决方法是将词向量输入bilstm+crf来分类。不过google去年开源了bert之后，nlp的许多任务准确率大幅提升。自然ner也不例外，只不过bert在此处相当于充当词向量，后续一样。不过google开源的源码里好像没有ner任务，此处参考大佬改写的bert ner版：https://github.com/jiangxinyang227/NLP-Project （真的是大佬，将各类任务都改写了一遍），不过需要改几处地方，其中源码中是读取英文数据，我将他改为处理中文数据。之前训练词向量的话一般用word2vec，不过它不能很好的解决同义词问题，而bert的好处是它是google用上亿数据通过tpu来训练，比赛中期开始用roberta（30G原始文本，近3亿个句子，100亿个中文字(token)，产生了2.5亿个训练数据(instance)），因此用bert这种预训练模型来对下游任务fine-tune（和图像领域的vggnet等很像）效果都很棒（包括小数据集）。
@@ -29,10 +27,14 @@ BERT输入表示。输入嵌入是token embeddings, segmentation embeddings 和p
 ## crf
 BiLSTM就不介绍了，比较常见。其实完全可以bert后直接接crf层，因为BiLSTM也是提取特征的，实际上bert已经做得很好了，不过我这里没有去掉BiLSTM层。  
 加入crf层的目的主要是可以为最终预测标签添加一些约束以确保它们有效。在训练过程中，CRF层可以自动从训练数据集中学习这些约束。  
-例如有两种类型的实体：人和组织。  
+例如有两种类型的实体：Person和Organization。  
 （1）句子中第一个单词的标签应以“B-”或“O”开头，而不是“I-”  
 （2）B-label1 I-label2 I-label3 I- …“，在此模式中，label1，label2，label3 …应该是相同的命名实体标签。例如，“B-Person I-Person”有效，但“B-Person I-Organization”无效。  
 （3）“O I-label”无效。一个命名实体的第一个标签应以“B-”而非“I-”开头，换句话说，有效模式应为“O B-label”  
 （4）利用这些有用的约束，无效预测标签序列的数量将显着减少。    
 CRF是它以路径为单位，考虑的是路径的概率。具体来讲，在CRF的序列标注问题中，我们要计算的是条件概率    
 P(y1,…,yn|x1,…,xn)=P(y1,…,yn|x),x=(x1,…,xn)
+# 关于比赛
+## 预处理（BDCI_NER.py）
+bert很神奇，有时候你对数据做一些清洗，最后结果反而会下降，但不代表完全不做清洗，需根据具体数据具体对待。比赛中我去除了html，<img>之类的标签。  
+之后是将训练集.csv转换成bert可以读入的格式.txt，用BIO标注将实体标注出来。具体处理参见BDCI_NER.py。  
