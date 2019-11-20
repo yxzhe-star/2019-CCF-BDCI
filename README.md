@@ -1,4 +1,3 @@
-# 2019-CCF-BDCI
 应平台方要求，12月来更代码。 
 # 比赛说明
 2019-CCF-BDCI 互联网金融新实体发现。比赛地址：https://www.datafountain.cn/competitions/361 
