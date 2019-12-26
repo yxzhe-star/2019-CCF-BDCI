@@ -51,4 +51,15 @@ def stop_words(input):
   input = re.sub('\t|\n', '', input)  
   return input  
 ```
-之后是用BIO标注将训练集.csv转换成bert可以读入的格式.txt，用BIO标注将实体标注出来。具体处理参见BDCI_NER.py。 
+之后是将训练集.csv转换成bert可以读入的格式.txt，用BIO标注将实体标注出来。具体处理参见BDCI_NER.py。 
+## 训练（bert_blstm_crf.py）
+可以直接在源码中修改路，例如：
+```
+data_dir = '/cos_person/data/data5/'
+
+flags.DEFINE_string(
+    "data_dir", data_dir,
+    "The input data dir. Should contain the .tsv files (or other data files) "
+    "for the task.")
+```
+
