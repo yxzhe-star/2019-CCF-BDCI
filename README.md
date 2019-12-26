@@ -62,4 +62,5 @@ flags.DEFINE_string(
     "The input data dir. Should contain the .tsv files (or other data files) "
     "for the task.")
 ```
+也可以运行run.sh
 
