@@ -1,4 +1,4 @@
-应平台方要求，12月来更代码。 
+
 # 比赛说明
 2019-CCF-BDCI 互联网金融新实体发现。比赛地址：https://www.datafountain.cn/competitions/361 
 随着互联网的飞速进步和全球金融的高速发展，金融信息呈现爆炸式增长。投资者和决策者在面对浩瀚的互联网金融信息时常常苦于如何高效的获取需要关注的内容。针对这一问题，金融实体识别方案的建立将极大提高金融信息获取效率，从而更好的为金融领域相关机构和个人提供信息支撑。
@@ -36,4 +36,19 @@ P(y1,…,yn|x1,…,xn)=P(y1,…,yn|x),x=(x1,…,xn)
 # 关于比赛
 ## 预处理（BDCI_NER.py）
 bert很神奇，有时候你对数据做一些清洗，最后结果反而会下降，但不代表完全不做清洗，需根据具体数据具体对待。比赛中我去除了html，<img>之类的标签。  
-之后是将训练集.csv转换成bert可以读入的格式.txt，用BIO标注将实体标注出来。具体处理参见BDCI_NER.py。  
+用正则表达式：  
+```
+def stop_words(input):  
+  input = input.replace(",", "，")  
+  input = input.replace("\xa0", "")  
+  input = input.replace("\b", "")  
+  input = input.replace('"', "")  
+  input = re.sub("\t|\n|\x0b|\x1c|\x1d|\x1e", "", input)  
+  input = input.strip()  
+  input = re.sub(r'<.*?>', '',input)  
+  input = re.sub('\?\?\?\?+', '', input)  
+  input = re.sub('\{IMG:.?.?.?\}', '', input)  
+  input = re.sub('\t|\n', '', input)  
+  return input  
+```
+之后是用BIO标注将训练集.csv转换成bert可以读入的格式.txt，用BIO标注将实体标注出来。具体处理参见BDCI_NER.py。 
