@@ -53,14 +53,150 @@ def stop_words(input):
 ```
 之后是将训练集.csv转换成bert可以读入的格式.txt，用BIO标注将实体标注出来。具体处理参见BDCI_NER.py。 
 ## 训练（bert_blstm_crf.py）
-可以直接在源码中修改路，例如：
+由于github上开源的是处理英文数据，格式不太一样，这里对本任务适配，对bert_blstm_crf.py中的_read_data函数修改
+```
+    def _read_data(cls, input_file):
+        """读取数据."""
+        with open(input_file, encoding='utf-8') as f:
+            lines = []
+            words = []
+            labels = []
+            for line in f:
+                contends = line.strip()
+                word = line.strip().split(' ')[0]
+                label = line.strip().split(' ')[-1]
+                if contends.startswith("-DOCSTART-"):
+                    words.append('')
+                    continue
+                # if len(contends) == 0 and words[-1] == '。':
+                if len(contends) == 0:
+                    l = ' '.join([label for label in labels if len(label) > 0])
+                    w = ' '.join([word for word in words if len(word) > 0])
+                    lines.append([l, w])
+                    words = []
+                    labels = []
+                    continue
+                words.append(word)
+                labels.append(label)
+            #print(lines[0])
+            #print(lines[1])
+            return lines
+```
+模型用的是roberta_zh_l12,12层的普通版
+可以直接在源码中修改路径和超参数，例如：
 ```
 data_dir = '/cos_person/data/data5/'
+bert_config_file = '/cos_person/model/roberta_zh_l12/bert_config.json'
+vocab_file = '/cos_person/model/roberta_zh_l12/vocab.txt'
+init_checkpoint = '/cos_person/model/roberta_zh_l12/bert_model.ckpt'
+#init_checkpoint ='/cos_person/model/fine-tune-ner5/'
+output_dir = '/cos_person/model/fine-tune-ner5/'
+flags = tf.flags
+FLAGS = flags.FLAGS
 
+# 定义必须要传的参数
 flags.DEFINE_string(
     "data_dir", data_dir,
     "The input data dir. Should contain the .tsv files (or other data files) "
     "for the task.")
+
+flags.DEFINE_string(
+    "bert_config_file", bert_config_file,
+    "The config json file corresponding to the pre-trained BERT model. "
+    "This specifies the model architecture.")
+
+flags.DEFINE_string("task_name", 'ner', "The name of the task to train.")
+
+flags.DEFINE_string("vocab_file",vocab_file,
+                    "The vocabulary file that the BERT model was trained on.")
+
+flags.DEFINE_string(
+    "output_dir", output_dir,
+    "The output directory where the model checkpoints will be written.")
+
+flags.DEFINE_string(
+    "init_checkpoint",init_checkpoint,
+    "Initial checkpoint (usually from a pre-trained BERT model).")
+
 ```
-也可以运行run.sh
+下面是可选参数
+```
+flags.DEFINE_bool(
+    "do_lower_case",True,
+    "Whether to lower case the input text. Should be True for uncased "
+    "models and False for cased models.")
+
+flags.DEFINE_integer(
+    "max_seq_length", 512,
+    "The maximum total input sequence length after WordPiece tokenization. "
+    "Sequences longer than this will be truncated, and sequences shorter "
+    "than this will be padded.")
+
+flags.DEFINE_bool("do_train",True, "Whether to run training.")
+
+flags.DEFINE_bool("do_eval",False, "Whether to run eval on the dev set.")
+
+flags.DEFINE_bool(
+    "do_predict",False,
+    "Whether to run the model in inference mode on the test set.")
+
+flags.DEFINE_integer("train_batch_size", 6, "Total batch size for training.")
+
+flags.DEFINE_integer("eval_batch_size", 6, "Total batch size for eval.")
+
+flags.DEFINE_integer("predict_batch_size", 6, "Total batch size for predict.")
+
+flags.DEFINE_float("learning_rate", 1e-5, "The initial learning rate for Adam.")
+
+flags.DEFINE_float("num_train_epochs", 15.0,
+                   "Total number of training epochs to perform.")
+
+flags.DEFINE_float(
+    "warmup_proportion", 0.1,
+    "Proportion of training to perform linear learning rate warmup for. "
+    "E.g., 0.1 = 10% of training.")
+
+flags.DEFINE_integer("save_checkpoints_steps", 1000,
+                     "How often to save the model checkpoint.")
+
+flags.DEFINE_integer("iterations_per_loop", 1000,
+                     "How many steps to make in each estimator call.")
+
+flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
+
+tf.flags.DEFINE_string(
+    "tpu_name", None,
+    "The Cloud TPU to use for training. This should be either the name "
+    "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 "
+    "url.")
+
+tf.flags.DEFINE_string(
+    "tpu_zone", None,
+    "[Optional] GCE zone where the Cloud TPU is located in. If not "
+    "specified, we will attempt to automatically detect the GCE project from "
+    "metadata.")
+
+tf.flags.DEFINE_string(
+    "gcp_project", None,
+    "[Optional] Project name for the Cloud TPU-enabled project. If not "
+    "specified, we will attempt to automatically detect the GCE project from "
+    "metadata.")
+
+tf.flags.DEFINE_string("master", None, "[Optional] TensorFlow master URL.")
+
+flags.DEFINE_integer(
+    "num_tpu_cores", 8,
+    "Only used if `use_tpu` is True. Total number of TPU cores to use.")
+
+flags.DEFINE_list(
+    "hidden_sizes", [256],
+    "support multi lstm layers, only add hidden_size into hidden_sizes list."
+)
+
+flags.DEFINE_list(
+    "layers", [256], "full connection layers"
+)
+
+flags.DEFINE_float("dropout_rate", 0.5, "dropout keep rate")
+```
 
