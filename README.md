@@ -199,7 +199,7 @@ flags.DEFINE_list(
 
 flags.DEFINE_float("dropout_rate", 0.5, "dropout keep rate")
 ```
-## 得到结果文件（post_do.py）
+## 得到结果文件（getResult.py）
 这个脚本完成了两个工作。  
 一个工作是轻微后处理，在查看预测结果时发现，举个例子：比如该句的实体是腾讯，但预测的结果是腾讯，腾讯腾讯。显然腾讯腾讯不是准确的结果，看了文本内容发现是文本在介绍某实体的时候没有冒号，应该是腾讯：腾讯是一家······但是冒号没有，导致识别错误。因此我在我在预测的结果上进行纠正。
 ```
@@ -259,7 +259,7 @@ with codecs.open('D:/submit.csv', 'w',encoding='utf-8') as up:
         up.write('{0},{1}\n'.format(id, word))
 ```
 ## 模型融合（combine.py）
-模型融合是很重要的一个步骤，单模得到得结果往往很片面，我使用随机种子（sklearn的train_test_split函数就可以）生成了多个数据分布不同的训练集，分别训练模型并预测。在初赛时我对句子使用了首尾各取512分别预测的策略，对同样一个句子的结果采用了并集合并，见union_combine（）函数。将这些结果再进行交集预测，见intersection_combine()函数。融合5-6个模型后貌似提升效果就很有限了，融合方法是投票表决，在这n个模型中统计某实体出现的次数，当次数大于v时，该实体是有效实体，保留，否则舍去。n和v的值就需要自己去尝试效果了。我最后是n=8，v=2。  
+模型融合是很重要的一个步骤，单模得到得结果往往很片面，我使用随机种子（sklearn的train_test_split函数就可以）生成了多个数据分布不同的训练集，分别训练模型并预测。在初赛时我对句子使用了首尾各取512分别预测的策略，对同样一个句子的结果采用了并集合并，见union_combine（）函数。将这些结果再进行交集预测，见intersection_combine()函数。融合5-6个模型后貌似提升效果就很有限了，融合方法是投票表决，对于某个预测样本，在这n个模型中统计某实体出现的次数m，当m>v时，该实体是有效实体，保留，否则舍去。n、v的值就需要自己去尝试效果了。我最后是n=8，v=2。  
 核心代码如下：
 ```
     for i in range(len(finallist)):
@@ -272,3 +272,67 @@ with codecs.open('D:/submit.csv', 'w',encoding='utf-8') as up:
         labelnew = [k for k,v in dict.items() if v > 2]
 ```
 模型融合的威力是巨大的，我经过上面这样的处理，比单模提升了6-7个百分点。
+## 后处理（do_post.py）
+在某些任务中，后处理也是十分重要的环节，后处理体现在对结果的再修改。  
+### 最大字符串过滤
+对于一个字符串a，若b是a的字串，则去除b。这样考虑的目的是有可能出现，八戒网络;猪八戒网;八戒网;猪八戒。模型可能识别很多子串，而且是明显错误的。  
+但结果中还可能出现这样的情况：深圳市景华投资发展有限公司;景华。赛题中说明实体的缩写和全称是不同的实体，因此不能简单的直接过滤子串。  
+综合考虑上述两种情况，如果某一条数据预测出的实体有n个，当n>k时（这里的k也需要自己尝试，我是k=5），采取最大字符串过滤，否则不处理。
+```
+longest_entities = []
+        for label1 in labels:
+            flag = 0
+            for label2 in labels:
+                if label1 == label2:
+                    continue
+                if label2.find(label1) != -1:
+                    flag = 1
+            if flag == 0:
+                longest_entities.append(label1)
+```
+### 基本规则的实体处理
+仔细分析文本数据发现，模型在预测时，类似这样的文本段：被骗后保留证据就行了?成?功?处?理?过?的?平?台?点赢策略、策略赢、涨赢策略、天元策略、优选策略、众赢策略众昇策略、中航策略、E策略、期期盈策略、赢远期策略、ETF在线。明显看出、将这些实体分割开了，但模型有时候仍然会识别不出来。  
+具体的，当n>k时，将该条文本基于、划分，划分后存入list，当划分后的元素长度大于2且小于7时保留，其余去除。核心代码如下：
+```
+    for j in index2:
+        text = test_df['text'][j]
+        divide_text = text.strip().split('、')
+        label = []
+        flag = 0
+        last_flag = 0
+        for content in divide_text:
+            if len(content) >2 and len(content)<7 and content.find(',') == -1:
+                flag = 1
+                label.append(content)
+                con1 = con1 + 1
+
+        for i in train_label:
+             label = [content for content in label if content != i]    #去除训练集实体
+```
+由于需要反复调用函数，将上述操作写到函数里，具体见do_post.py：  
+```
+if __name__ == "__main__":
+    result = pd.read_csv('D:/final_combine.csv', encoding='utf-8')
+    test_df = pd.read_csv('D:/Round2_Test.csv',encoding='utf-8')
+    test_df['text'] = test_df['title'].fillna('') + test_df['text'].fillna('')
+    #选择出过滤前实体多的数据
+    index1 = many_labels()
+    #对实体多的数据进行最大字符串过滤
+    revemove_substring(index1)
+    #选择出过滤后实体多的数据
+    index2 = many_labels()
+    index3 = rule()
+    #根据规则划分数据，并将其与原来数据融合
+    divide(index2)
+    #对融合后的数据进行最大字符串过滤
+    revemove_substring(index2)
+    divide(index3)
+    revemove_substring(index3)
+    for i in range(len(result)):
+        if str(result['unknownEntities'][i]) != 'nan':
+            result.loc[i,'unknownEntities'] = clean_zh_text(result.loc[i,'unknownEntities'])
+    result.to_csv('D:/try.csv', index=False)
+```
+经过上面这样的处理，结果又能提升3-4个百分点，效果十分明显。
+# 感悟
+由于本人时初学者，也是第一次该类型比赛，理论知识有限，无法对模型架构动刀，但仍然学到了很多。
