@@ -199,4 +199,64 @@ flags.DEFINE_list(
 
 flags.DEFINE_float("dropout_rate", 0.5, "dropout keep rate")
 ```
+## 得到结果文件（post_do.py）
+这个脚本完成了两个工作。  
+一个工作是轻微后处理，在查看预测结果时发现，举个例子：比如该句的实体是腾讯，但预测的结果是腾讯，腾讯腾讯。显然腾讯腾讯不是准确的结果，看了文本内容发现是文本在介绍某实体的时候没有冒号，应该是腾讯：腾讯是一家······但是冒号没有，导致识别错误。因此我在我在预测的结果上进行纠正。
+```
+for j in range(len(nb_output)):
+    strlabel = nb_output['unknownEntities'][j]
+    label = str(strlabel).strip().split(';')
+    labelold = str(strlabel).strip().split(';')
+    label = list(set(label))
+    labelold = list(set(labelold))
+    for i in range(len(labelold)):
+        if len(labelold[i])%2 == 0 and len(labelold[i])!= 2:
+            l = len(labelold[i])//2
+            sleft = labelold[i][:l]
+            sright = labelold[i][l:]
+            if sleft == sright:
+              #print(j)
+              label.remove(labelold[i])
+              flag = 0
+              for t in label:
+                if sleft ==t:
+                    cpn = cpn +1
+                    flag =1
+                    break
+              if flag == 0:
+                cpn = cpn + 1
+                label.append(sleft)
 
+    if len(label) > 1:
+      newstr = ''
+      for i in range(len(label)):
+           newstr= newstr + label[i]
+           if i != len(label)-1:
+               newstr = newstr + ';'
+      nb_output.loc[j,'unknownEntities']= newstr
+    elif len(label) == 1 and label[0]!='nan':
+        nb_output.loc[j,'unknownEntities'] = label[0]
+print('数量',cpn)
+nb_output.to_csv('D:/submit11.csv',index=False)
+```
+这是我在初赛时发现的，大概有纠正了100个错误，使用后提升了0.15%，其实效果不是很明显。主要是因为多识别一个正确的实体带来的收益远大于识别错的负面影响。
+第二个工作是就是把bert的预测结果转化成csv格式。
+```
+with codecs.open('D:/submit.csv', 'w',encoding='utf-8') as up:
+    up.write('id,unknownEntities\n')
+    for word, id in zip(pred_word, test_df['id'].values):
+        word = set([filter_word(x) for x in word.split(';') if x not in ['', ';'] and len(x) > 1])
+        #print(word)
+        word = [x for x in word if x != '']
+        con1 = con1 +len(word)
+        for j in train_label:
+           word = [x for x in word if x != j]
+        con2 = con2 + len(word)
+        if len(word) == 0:
+            word = ['']
+
+        word = ';'.join(list(word))
+        up.write('{0},{1}\n'.format(id, word))
+```
+## 模型融合（combine.py）
+模型融合是很重要的一个步骤，单模得到得结果往往很片面，我使用随机种子（sklearn的train_test_split函数就可以）生成了多个不同的训练集，分别训练模型并预测。在初赛时我对句子使用了首尾各取512的策略，对同样一个句子的结果采用了并集合并，见union_combine（）函数，最后得到
