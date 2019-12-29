@@ -259,4 +259,16 @@ with codecs.open('D:/submit.csv', 'w',encoding='utf-8') as up:
         up.write('{0},{1}\n'.format(id, word))
 ```
 ## 模型融合（combine.py）
-模型融合是很重要的一个步骤，单模得到得结果往往很片面，我使用随机种子（sklearn的train_test_split函数就可以）生成了多个不同的训练集，分别训练模型并预测。在初赛时我对句子使用了首尾各取512的策略，对同样一个句子的结果采用了并集合并，见union_combine（）函数，最后得到
+模型融合是很重要的一个步骤，单模得到得结果往往很片面，我使用随机种子（sklearn的train_test_split函数就可以）生成了多个不同的训练集，分别训练模型并预测。在初赛时我对句子使用了首尾各取512分别预测的策略，对同样一个句子的结果采用了并集合并，见union_combine（）函数。将这些结果再进行交集预测，见intersection_combine()函数。融合5-6个模型后貌似提升效果就很有限了，融合方法是投票表决，在这n个模型中统计某实体出现的次数，当次数大于v时，该实体是有效实体，保留，否则舍去。n和v的值就需要自己去尝试效果了。我最后是n=8，v=2。  
+核心代码如下：
+```
+    for i in range(len(finallist)):
+        labels = finallist[i]
+        dict = {}
+        for key in labels:
+           dict[key] = dict.get(key, 0) + 1
+        if 'nan' in dict.keys():
+            del dict['nan']
+        labelnew = [k for k,v in dict.items() if v > 2]
+```
+模型融合的威力是巨大的，我经过上面这样的处理，比单模提升了6-7个百分点。
