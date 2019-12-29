@@ -53,6 +53,7 @@ def stop_words(input):
 ```
 之后是将训练集.csv转换成bert可以读入的格式.txt，用BIO标注将实体标注出来。具体处理参见BDCI_NER.py。 
 ## 训练（bert_blstm_crf.py）
+在bert-model文件夹里  
 由于github上开源的是处理英文数据，格式不太一样，这里对本任务适配，对bert_blstm_crf.py中的_read_data函数修改
 ```
     def _read_data(cls, input_file):
